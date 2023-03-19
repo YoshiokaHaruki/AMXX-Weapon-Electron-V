@@ -9,7 +9,7 @@
  */
 
 new const PluginName[ ] =						"[ZP] Weapon: Electron-V";
-new const PluginVersion[ ] =					"1.0";
+new const PluginVersion[ ] =					"1.0.0";
 new const PluginAuthor[ ] =						"Yoshioka Haruki";
 
 /* ~ [ Includes ] ~ */
