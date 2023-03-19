@@ -9,10 +9,13 @@ About this weapon: [Link](https://cso.fandom.com/wiki/Electron-V)
 
 ---
 ### Requirements
-- HLDS / ReHLDS + ReGameDLL + ReAPI
-- Metamod / Metamod-r / Metamod-P
-- AMX Mod X 1.8.2 and above
-  - Tip: Recommend using the latest versions.
+ReAPI version:
+- ReHLDS, ReGameDLL, Metamod-R (or Metamod-P), AMX Mod X, ReAPI.
+
+Non-ReAPI version:
+- HLDS, Metamod (or Metamod-P), AMX Mod X
+
+❗ Tip: Recommend using the latest versions.
 
 ---
 ### Install
