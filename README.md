@@ -1,4 +1,4 @@
-# AMXX-Weapon-Electron-V
+# AMXX Weapon Electron-V
 Weapon Electron-V from Counter-Strike: Online for Counter-Strike 1.6 (based on AMX Mod X)
 
 About this weapon: [Link](https://cso.fandom.com/wiki/Electron-V)
