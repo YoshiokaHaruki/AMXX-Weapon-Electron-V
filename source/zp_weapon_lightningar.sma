@@ -9,7 +9,7 @@
  */
 
 new const PluginName[ ] =						"[ZP] Weapon: Electron-V";
-new const PluginVersion[ ] =					"1.0.0";
+new const PluginVersion[ ] =					"1.0.1";
 new const PluginAuthor[ ] =						"Yoshioka Haruki";
 
 /* ~ [ Includes ] ~ */
@@ -51,9 +51,11 @@ new const PluginAuthor[ ] =						"Yoshioka Haruki";
  */
 #define PrecacheSoundsFromModel
 
-/* ~ [ Extra Item ] ~ */
-new const ExtraItem_Name[ ] =					"Electron-V";
-const ExtraItem_Cost =							0;
+#if defined _zombieplague_included
+	/* ~ [ Extra Item ] ~ */
+	new const ExtraItem_Name[ ] =				"Electron-V";
+	const ExtraItem_Cost =						0;
+#endif
 
 /* ~ [ Weapon Settings ] ~ */
 const WeaponUnicalIndex =						16022023;
@@ -82,32 +84,35 @@ new const WeaponSounds[ ][ ] = {
 	"weapons/lightningar-3_exp.wav"
 };
 
-const ModelWorldBody =							0;
+const ModelWorldBody =							0; // w_ submodel
 
-const WeaponMaxClip =							50;
-const WeaponDefaultAmmo =						200;
-const WeaponMaxAmmo =							200;
+const WeaponMaxClip =							50; // Max Clip
+const WeaponDefaultAmmo =						200; // Default Ammo
+const WeaponMaxAmmo =							200; // Max BP Ammo (reapi)
 
 #if defined _api_muzzleflash_included
+	/* ~ [ Muzzle-Flash ] ~ */
 	new const MuzzleFlashSprite[ ] =			"sprites/x_re/muzzleflash215.spr";
-	const Float: MuzzleFlashScale =				0.07;
-	const Float: MuzzleFlashLifeTime =			0.35;
+	const Float: MuzzleFlashScale =				0.07; // Scale
+	const Float: MuzzleFlashLifeTime =			0.35; // Life-Time
 #endif
 
 // Primary Attack
 const Float: WeaponAccuracy =					0.2;
-const Float: WeaponRate =						0.07;
-const Float: WeaponNextShootTime =				0.3;
-const WeaponMaxShoots =							2;
+const Float: WeaponRate =						0.07; // Weapon shoot rate
+const Float: WeaponNextShootTime =				0.3; // Next shoot after burst
+const WeaponMaxShoots =							2; // Shoots in burst
 
 #if defined _reapi_included
-	const WeaponDamage =						40;
-	const WeaponShotPenetration =				2;
-	const Bullet: WeaponBulletType =			BULLET_PLAYER_556MM;
-	const Float: WeaponShotDistance =			8192.0;
-	const Float: WeaponRangeModifier =			0.96;
+	// ReAPI
+	const WeaponDamage =						40; // Base Damage
+	const WeaponShotPenetration =				2; // Penetration
+	const Bullet: WeaponBulletType =			BULLET_PLAYER_556MM; // Bullet Type
+	const Float: WeaponShotDistance =			8192.0; // Max shoot distance
+	const Float: WeaponRangeModifier =			0.96; // Range Modifier
 #else
-	const Float: WeaponDamageMultiplier =		1.2;
+	// Non-ReAPI
+	const Float: WeaponDamageMultiplier =		1.2; // Damage multiplier
 #endif
 
 // Secondary Attack
@@ -136,7 +141,7 @@ new const EntityElectronStormClassNames[ ][ ] = {
 new const EntityElectronStormModel[ ] =			"models/x_re/ef_lightningar.mdl";
 const Float: EntityElectronStormSize =			100.0; // Radius
 const Float: EntityElectronStormSpeed =			500.0; // Flying speed
-const Float: EntityElectronLifeTime =			3.75; // LifeTime
+const Float: EntityElectronLifeTime =			3.75; // Life-Time
 const Float: EntityElectronNextThink =			0.05;
 const Float: EntityElectronStormDamageTime =	0.3; // Damage Time for victims
 const Float: EntityElectronStormDamage =		150.0; // Damage in EntityElectronStormDamageTime
@@ -167,8 +172,11 @@ const Float: WeaponAnim_Shoot_Time =			1.0;
 const Float: WeaponAnim_Shoot_Charge_Time =		0.57;
 
 /* ~ [ Params ] ~ */
-new gl_iItemId;
 new gl_iMaxPlayers;
+
+#if defined _zombieplague_included && defined ExtraItem_Name
+	new gl_iItemId;
+#endif
 
 #if defined _reapi_included
 	new HookChain: gl_HookChain_IsPenetrableEntity_Post;
@@ -1144,11 +1152,15 @@ public CElectronRadius__Touch( const pEntity, const pTouch )
 	if ( pTouch == get_entvar( pEntity, var_aiment ) || !IsUserValid( pTouch ) )
 		return;
 
-	if ( !zp_get_user_zombie( pTouch ) )
-		return;
-
 	static pOwner; pOwner = get_entvar( pEntity, var_owner );
 	if ( pTouch == pOwner )
+		return;
+
+#if defined _zombieplague_included
+	if ( !zp_get_user_zombie( pTouch ) )
+#else
+	if ( IsSimilarPlayersTeam( pTouch, pOwner ) )
+#endif
 		return;
 
 	static Float: flGameTime; flGameTime = get_gametime( );
@@ -1175,6 +1187,16 @@ public CElectronRadius__Touch( const pEntity, const pTouch )
 #endif
 
 /* ~ [ Stocks ] ~ */
+#if !defined _zombieplague_included
+	stock bool: IsSimilarPlayersTeam( const pPlayer, const pTarget )
+	{
+		if ( get_member( pPlayer, m_iTeam ) == get_member( pTarget, m_iTeam ) )
+			return true;
+
+		return false;
+	}
+#endif
+
 /* -> Weapon Animation <- */
 stock UTIL_SendWeaponAnim( const iDest, const pReceiver, const pItem, const iAnim ) 
 {
