@@ -9,7 +9,7 @@
  */
 
 new const PluginName[ ] =						"[ZP] Weapon: Electron-V";
-new const PluginVersion[ ] =					"1.0.1";
+new const PluginVersion[ ] =					"1.1";
 new const PluginAuthor[ ] =						"Yoshioka Haruki";
 
 /* ~ [ Includes ] ~ */
@@ -124,9 +124,6 @@ const WeaponMaxShoots =							2; // Shoots in burst
 
 #if defined WeaponListDir && defined UseSecondaryAmmoHud
 	const WeaponSecondaryAmmoIndex =			21; // 15-31 only. Change if conflict with another weapons
-	#if defined _reapi_included
-		new const WeaponSecondaryAmmoName[ ] =	"ammo_lightningar";
-	#endif
 #endif
 
 const WeaponSecondaryAmmoMax =					3; // Max Electron Storms
@@ -185,7 +182,7 @@ new gl_iMaxPlayers;
 
 	#if defined WeaponListDir
 		new gl_iMsgId_WeaponList;
-		new gl_iWeaponListData[ 8 ];
+		new gl_aWeaponListData[ 8 ];
 	#endif
 #endif
 
@@ -297,7 +294,7 @@ public plugin_init( )
 #else
 	/* -> ReGameDLL <- */
 	RegisterHookChain( RG_CWeaponBox_SetModel, "RG_CWeaponBox__SetModel_Pre", false );
-	RegisterHookChain( RG_CSGameRules_CleanUpMap, "RG_CSGameRules__CleanUpMap_Post", true );
+	RegisterHookChain( RG_CSGameRules_RestartRound, "RG_CSGameRules__RestartRound_Post", true );
 
 	DisableHookChain( gl_HookChain_IsPenetrableEntity_Post = 
 		RegisterHookChain( RG_IsPenetrableEntity, "RG_IsPenetrableEntity_Post", true )
@@ -386,8 +383,8 @@ public bool: native_give_user_weapon( )
 
 			if ( !strcmp( szWeaponName, WeaponReference ) )
 			{
-				for ( new i, a = sizeof gl_iWeaponListData; i < a; i++ )
-					gl_iWeaponListData[ i ] = get_msg_arg_int( i + 2 );
+				for ( new i, a = sizeof gl_aWeaponListData; i < a; i++ )
+					gl_aWeaponListData[ i ] = get_msg_arg_int( i + 2 );
 
 				unregister_message( iMsgId, gl_iMsgId_WeaponList );
 			}
@@ -479,7 +476,7 @@ public FM_Hook_UpdateClientData_Post( const pPlayer, const iSendWeapons, const C
 		return HC_CONTINUE;
 	}
 
-	public RG_CSGameRules__CleanUpMap_Post( )
+	public RG_CSGameRules__RestartRound_Post( )
 	{
 		UTIL_DestroyEntitiesByClass( EntityElectronStormClassNames[ 0 ] );
 		UTIL_DestroyEntitiesByClass( EntityElectronStormClassNames[ 1 ] );
@@ -654,8 +651,17 @@ public Ham_CWeapon_PostFrame_Pre( const pItem )
 
 public Ham_CWeapon_AddToPlayer_Post( const pItem, const pPlayer ) 
 {
-	if ( is_nullent( pItem ) || !IsCustomWeapon( pItem, WeaponUnicalIndex ) )
+	if ( is_nullent( pItem ) )
 		return;
+
+	if ( !IsCustomWeapon( pItem, WeaponUnicalIndex ) )
+	{
+	#if defined _reapi_included
+		UTIL_WeaponList( MSG_ONE, pPlayer, pItem );
+	#else
+		UTIL_WeaponList( MSG_ONE, pPlayer, WeaponReference );
+	#endif
+	}
 
 	if ( get_entvar( pItem, var_owner ) <= 0 )
 	{	
@@ -663,7 +669,6 @@ public Ham_CWeapon_AddToPlayer_Post( const pItem, const pPlayer )
 		set_member( pItem, m_Weapon_iSecondaryAmmoType, WeaponSecondaryAmmoIndex );
 
 		#if defined _reapi_included
-			rg_set_iteminfo( pItem, ItemInfo_pszAmmo2, WeaponSecondaryAmmoName );
 			rg_set_iteminfo( pItem, ItemInfo_iMaxAmmo2, WeaponSecondaryAmmoMax );
 		#endif
 	#endif
@@ -1358,14 +1363,14 @@ stock UTIL_SendWeaponAnim( const iDest, const pReceiver, const pItem, const iAni
 
 			message_begin( iDist, iMsgId_Weaponlist, .player = pReceiver );
 			write_string( szWeaponName );
-			write_byte( ( iPrimaryAmmoType <= -2 ) ? gl_iWeaponListData[ 0 ] : iPrimaryAmmoType );
-			write_byte( ( iMaxPrimaryAmmo <= -2 ) ? gl_iWeaponListData[ 1 ] : iMaxPrimaryAmmo );
-			write_byte( ( iSecondaryAmmoType <= -2 ) ? gl_iWeaponListData[ 2 ] : iSecondaryAmmoType );
-			write_byte( ( iMaxSecondaryAmmo <= -2 ) ? gl_iWeaponListData[ 3 ] : iMaxSecondaryAmmo );
-			write_byte( ( iSlot <= -2 ) ? gl_iWeaponListData[ 4 ] : iSlot );
-			write_byte( ( iPosition <= -2 ) ? gl_iWeaponListData[ 5 ] : iPosition );
-			write_byte( ( iWeaponId <= -2 ) ? gl_iWeaponListData[ 6 ] : iWeaponId );
-			write_byte( ( iFlags <= -2 ) ? gl_iWeaponListData[ 7 ] : iFlags );
+			write_byte( ( iPrimaryAmmoType <= -2 ) ? gl_aWeaponListData[ 0 ] : iPrimaryAmmoType );
+			write_byte( ( iMaxPrimaryAmmo <= -2 ) ? gl_aWeaponListData[ 1 ] : iMaxPrimaryAmmo );
+			write_byte( ( iSecondaryAmmoType <= -2 ) ? gl_aWeaponListData[ 2 ] : iSecondaryAmmoType );
+			write_byte( ( iMaxSecondaryAmmo <= -2 ) ? gl_aWeaponListData[ 3 ] : iMaxSecondaryAmmo );
+			write_byte( ( iSlot <= -2 ) ? gl_aWeaponListData[ 4 ] : iSlot );
+			write_byte( ( iPosition <= -2 ) ? gl_aWeaponListData[ 5 ] : iPosition );
+			write_byte( ( iWeaponId <= -2 ) ? gl_aWeaponListData[ 6 ] : iWeaponId );
+			write_byte( ( iFlags <= -2 ) ? gl_aWeaponListData[ 7 ] : iFlags );
 			message_end( );
 		}
 	#endif
