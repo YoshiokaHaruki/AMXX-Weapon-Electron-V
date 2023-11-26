@@ -9,7 +9,7 @@
  */
 
 new const PluginName[ ] =						"[ZP] Weapon: Electron-V";
-new const PluginVersion[ ] =					"1.1";
+new const PluginVersion[ ] =					"1.2";
 new const PluginAuthor[ ] =						"Yoshioka Haruki";
 
 /* ~ [ Includes ] ~ */
@@ -27,17 +27,17 @@ new const PluginAuthor[ ] =						"Yoshioka Haruki";
 /**
  * If u don't want use custom Muzzle-Flash when shoot, just comment out or delete this line
  */
-#include <api_muzzleflash>
+#tryinclude <api_muzzleflash>
 
 /**
  * If u don't want use Smoke-WallPuff when hit, just comment out or delete this line
  */
-// #include <api_smokewallpuff>
+#tryinclude <api_smokewallpuff>
 
 /**
  * Allows submodel for p_ model
  */
-#include <api_weapon_player_model>
+#tryinclude <api_weapon_player_model>
 
 #if !defined _reapi_included
 	#include <non_reapi_support>
@@ -169,7 +169,9 @@ const Float: WeaponAnim_Shoot_Time =			1.0;
 const Float: WeaponAnim_Shoot_Charge_Time =		0.57;
 
 /* ~ [ Params ] ~ */
-new gl_iMaxPlayers;
+#if AMXX_VERSION_NUM <= 182
+	new MaxClients;
+#endif
 
 #if defined _zombieplague_included && defined ExtraItem_Name
 	new gl_iItemId;
@@ -181,7 +183,8 @@ new gl_iMaxPlayers;
 	new HamHook: gl_HamHook_TraceAttack[ 4 ];
 
 	#if defined WeaponListDir
-		new gl_iMsgId_WeaponList;
+		new gl_iMsgHook_WeaponList;
+		new gl_FM_Hook_RegUserMsg_Post;
 		new gl_aWeaponListData[ 8 ];
 	#endif
 #endif
@@ -220,7 +223,7 @@ enum ( <<=1 ) {
 #define BIT_SUB(%0,%1)							( %0 &= ~%1 )
 #define BIT_VALID(%0,%1)						( ( %0 & %1 ) == %1 )
 
-#define IsUserValid(%0)							bool: ( 0 < %0 <= gl_iMaxPlayers )
+#define IsUserValid(%0)							bool: ( 0 < %0 <= MaxClients )
 #define IsNullVector(%0)						bool: ( ( %0[ 0 ] + %0[ 1 ] + %0[ 2 ] ) == 0.0 )
 #define IsCustomWeapon(%0,%1)					bool: ( get_entvar( %0, var_impulse ) == %1 )
 #define GetWeaponState(%0)						get_member( %0, m_Weapon_iWeaponState )
@@ -264,7 +267,13 @@ public plugin_precache( )
 	UTIL_PrecacheWeaponList( WeaponListDir );
 
 	#if !defined _reapi_included
-		gl_iMsgId_WeaponList = register_message( get_user_msgid( "WeaponList" ), "MsgId_WeaponList" );
+		/* -> Get MessageId < - */
+		new iMsgId_Weaponlist = get_user_msgid( "WeaponList" );
+
+		if ( !iMsgId_Weaponlist )
+			gl_FM_Hook_RegUserMsg_Post = register_forward( FM_RegUserMsg, "FM_Hook_RegUserMsg_Post", true );
+		else
+			gl_iMsgHook_WeaponList = register_message( iMsgId_Weaponlist, "MsgHook_WeaponList" );
 	#endif
 #endif
 
@@ -337,11 +346,20 @@ public plugin_init( )
 	gl_iItemId = zp_register_extra_item( ExtraItem_Name, ExtraItem_Cost, ZP_TEAM_HUMAN );
 #endif
 
+#if !defined _reapi_included && defined WeaponListDir
+	if ( gl_FM_Hook_RegUserMsg_Post )
+		unregister_forward( FM_RegUserMsg, gl_FM_Hook_RegUserMsg_Post, true );
+
+	unregister_message( get_user_msgid( "WeaponList" ), gl_iMsgHook_WeaponList );
+#endif
+
 	/* -> Other <- */
-#if defined _reapi_included
-	gl_iMaxPlayers = get_member_game( m_nMaxPlayers );
-#else
-	gl_iMaxPlayers = get_maxplayers( );
+#if AMXX_VERSION_NUM <= 182
+	#if defined _reapi_included
+		MaxClients = get_member_game( m_nMaxPlayers );
+	#else
+		MaxClients = get_maxplayers( );
+	#endif
 #endif
 }
 
@@ -373,7 +391,7 @@ public bool: native_give_user_weapon( )
 
 #if defined WeaponListDir && !defined _reapi_included
 	/* ~ [ Messages ] ~ */
-	public MsgId_WeaponList( const iMsgId, const iMsgDest, const pReceiver )
+	public MsgHook_WeaponList( const iMsgId, const iMsgDest, const pReceiver )
 	{
 		// Method by KORD_12.7
 		if ( !pReceiver )
@@ -385,8 +403,6 @@ public bool: native_give_user_weapon( )
 			{
 				for ( new i, a = sizeof gl_aWeaponListData; i < a; i++ )
 					gl_aWeaponListData[ i ] = get_msg_arg_int( i + 2 );
-
-				unregister_message( iMsgId, gl_iMsgId_WeaponList );
 			}
 		}
 	}
@@ -455,6 +471,15 @@ public FM_Hook_UpdateClientData_Post( const pPlayer, const iSendWeapons, const C
 		xs_vec_mul_scalar( vecPlaneNormal, random_float( 25.0, 30.0 ), vecPlaneNormal );
 		UTIL_TE_STREAK_SPLASH( MSG_PAS, vecEnd, vecPlaneNormal, 4, random_num( 10, 20 ), 3, 64 );
 	}
+
+	#if defined WeaponListDir
+		public FM_Hook_RegUserMsg_Post( const szName[ ] )
+		{
+			// Method by wellasgood
+			if ( strcmp( szName, "WeaponList" ) == 0 )
+				gl_iMsgHook_WeaponList = register_message( get_orig_retval( ), "MsgHook_WeaponList" );
+		}
+	#endif
 
 	/* ~ [ Events ] ~ */
 	public EV_RoundStart( )
@@ -654,13 +679,18 @@ public Ham_CWeapon_AddToPlayer_Post( const pItem, const pPlayer )
 	if ( is_nullent( pItem ) )
 		return;
 
-	if ( !IsCustomWeapon( pItem, WeaponUnicalIndex ) )
+	new iWeaponKey = get_entvar( pItem, var_impulse );
+	if ( iWeaponKey != WeaponUnicalIndex )
 	{
-	#if defined _reapi_included
-		UTIL_WeaponList( MSG_ONE, pPlayer, pItem );
-	#else
-		UTIL_WeaponList( MSG_ONE, pPlayer, WeaponReference );
+	#if defined WeaponListDir
+		#if defined _reapi_included
+			UTIL_WeaponList( MSG_ONE, pPlayer, pItem );
+		#else
+			if ( iWeaponKey == 0 )
+				UTIL_WeaponList( MSG_ONE, pPlayer, WeaponReference );
+		#endif
 	#endif
+		return;
 	}
 
 	if ( get_entvar( pItem, var_owner ) <= 0 )
